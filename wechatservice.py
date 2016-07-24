@@ -50,7 +50,7 @@ def xiaoi():
 def index():
     return '<h1>Hello World!</h1>'
 
-# 测试微信公众平台api接口, 直接返回echoStr，不做校验  
+# 测试微信公众平台api接口, 直接返回echoStr，不做校验 , can not get the post body 
 @app.route('/xiaoi/service', methods=['GET','POST'])
 def service():
     response = body_text_of_user_request
