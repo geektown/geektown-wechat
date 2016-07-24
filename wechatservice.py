@@ -50,7 +50,7 @@ def xiaoi():
 def index():
     return '<h1>Hello World!</h1>'
 
-# 测试微信公众平台api接口, 直接返回echoStr，不做校验 , can not get the post body 
+# 测试微信公众平台api接口, 直接返回echoStr，不做校验 , FIXME can not get the post body 
 @app.route('/xiaoi/service', methods=['GET','POST'])
 def service():
     response = body_text_of_user_request
@@ -70,20 +70,20 @@ def service():
         # 对 XML 数据进行解析 (必要, 否则不可执行 response_text, response_image 等操作)
         wechat.parse_data(body_text_of_user_request)
         id = wechat.message.id          # 对应于 XML 中的 MsgId
-        print id
+        # print id
         target = wechat.message.target  # 对应于 XML 中的 ToUserName
-        print target
+        # print target
         source = wechat.message.source  # 对应于 XML 中的 FromUserName
-        print source
+        # print source
         createTime = wechat.message.time      # 对应于 XML 中的 CreateTime
-        print createTime
+        # print createTime
         type = wechat.message.type      # 对应于 XML 中的 MsgType
-        print type
+        # print type
         raw = wechat.message.raw        # 原始 XML 文本，方便进行其他分析
-        print "raw xml ----:", raw
+        # print "raw xml ----:", raw
         # 获得解析结果, message 为 WechatMessage 对象 (wechat_sdk.messages中定义)
         message = wechat.get_message()
-        print "wechat.get_message()", message
+        # print "wechat.get_message()", message
         response = wechat.response_text(u'^_^')
         if message.type == 'text':
             if message.content == 'wechat':
@@ -96,7 +96,7 @@ def service():
             response = wechat.response_text(u'未知')
 
         # 现在直接将 response 变量内容直接作为 HTTP Response 响应微信服务器即可，此处为了演示返回内容，直接将响应进行输出
-    print response
+    # print response
 
     return response
 
