@@ -6,6 +6,16 @@ from wechat_sdk.exceptions import ParseError
 from flask import Flask, request
 import time
 
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
+try: 
+  import xml.etree.cElementTree as ET 
+except ImportError: 
+  import xml.etree.ElementTree as ET
+
+  
 app = Flask(__name__)
     
 # 下面这些变量均假设已由 Request 中提取完毕
@@ -53,19 +63,26 @@ def index():
 # 测试微信公众平台api接口, 直接返回echoStr，不做校验 , FIXME can not get the post body 
 @app.route('/xiaoi/service', methods=['GET','POST'])
 def service():
-    response = body_text_of_user_request
     if request.method == 'POST':
         print "get a post request", request
         print request.args
         print request.form
         print request.values
         print request.cookies
-        
+        print request.get_data()
         # print request.form['body']
-        
+        body_text_of_user_request = request.get_data()
         # print 'encrypt_type,', request.form['encrypt_type']
         # print body
-    # 对签名进行校验
+        try: 
+            # tree = ET.parse(xmlfile)     #打开xml文档 
+            tree = ET.fromstring(body_text_of_user_request) #从字符串传递xml 
+            content = tree.findtext('Content')         #获得root节点  
+        except Exception, e: 
+            print "Error:cannot parse xml."
+
+         
+    # 对签名进行校验，此处跳过。
     if True:
         # 对 XML 数据进行解析 (必要, 否则不可执行 response_text, response_image 等操作)
         wechat.parse_data(body_text_of_user_request)
@@ -89,11 +106,11 @@ def service():
             if message.content == 'wechat':
                 response = wechat.response_text(u'^_^')
             else:
-                response = wechat.response_text(u'这是公众号阿里云服务器返回的数据。\n@' + time.ctime())
-        elif message.type == 'image':
-            response = wechat.response_text(u'图片')
+                response = wechat.response_text(u'云平台即将对您的输入进行响应。\n你输入的内容是：'+ content +'\n@' + time.ctime())
+        elif message.type == 'voice':
+            response = wechat.response_text(u'云平台即将对您的输入进行响应。\n你输入的语音是：'+ tree.findtext('Recognition') +'\n@' + time.ctime())
         else:
-            response = wechat.response_text(u'未知')
+            response = wechat.response_text(u'不好意思，你的输入我还处理不了。')
 
         # 现在直接将 response 变量内容直接作为 HTTP Response 响应微信服务器即可，此处为了演示返回内容，直接将响应进行输出
     # print response
@@ -108,4 +125,4 @@ def sayHello(name):
 
 
 if __name__ == '__main__':
-    app.run(debug=True,host="0.0.0.0", port=5000) 
+    app.run(debug=True,host="0.0.0.0", port=80) 
