@@ -18,11 +18,6 @@ except ImportError:
   
 app = Flask(__name__)
     
-# 下面这些变量均假设已由 Request 中提取完毕
-token = 'xiaoigeektown'  # 你的微信 Token
-signature = 'f24649c76c3f3d81b23c033da95a7a30cb7629cc'  # Request 中 GET 参数 signature
-timestamp = '1406799650'  # Request 中 GET 参数 timestamp
-nonce = '1505845280'  # Request 中 GET 参数 nonce
 # 用户的请求内容 (Request 中的 Body)
 # 请更改 body_text_of_user_request 的内容来测试下面代码的执行情况
 body_text_of_user_request = """
@@ -61,7 +56,7 @@ def index():
     return '<h1>Hello World!</h1>'
 
 # 测试微信公众平台api接口, 直接返回echoStr，不做校验 , FIXME can not get the post body 
-@app.route('/xiaoi/service', methods=['GET','POST'])
+@app.route('/xiaoi/service', methods=['POST'])
 def service():
     if request.method == 'POST':
         print "get a post request", request
@@ -83,7 +78,7 @@ def service():
 
          
     # 对签名进行校验，此处跳过。
-    if True:
+    if wechat.check_signature(signature=request.args.get('signature'), timestamp=request.args.get('timestamp'), nonce=request.args.get('nonce')):
         # 对 XML 数据进行解析 (必要, 否则不可执行 response_text, response_image 等操作)
         wechat.parse_data(body_text_of_user_request)
         id = wechat.message.id          # 对应于 XML 中的 MsgId
@@ -125,4 +120,4 @@ def sayHello(name):
 
 
 if __name__ == '__main__':
-    app.run(debug=True,host="0.0.0.0", port=80) 
+    app.run(debug=True,host="0.0.0.0", port=5000) 
