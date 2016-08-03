@@ -5,7 +5,12 @@ from wechat_sdk import WechatBasic
 from wechat_sdk.exceptions import ParseError
 from flask import Flask, request
 import time
-
+import tempfile
+import subprocess
+import servicemanager,json,sys,os
+import re
+import urllib2
+import urllib
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -15,6 +20,23 @@ try:
 except ImportError: 
   import xml.etree.ElementTree as ET
 
+import logging
+# 创建一个logger
+logger = logging.getLogger('wechat')
+logger.setLevel(logging.DEBUG)
+# 创建一个handler，用于写入日志文件
+fh = logging.FileHandler('wechat.log')
+fh.setLevel(logging.DEBUG)
+# 再创建一个handler，用于输出到控制台
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+# 定义handler的输出格式
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+fh.setFormatter(formatter)
+ch.setFormatter(formatter)
+# 给logger添加handler
+logger.addHandler(fh)
+logger.addHandler(ch)
   
 app = Flask(__name__)
     
@@ -60,11 +82,11 @@ def index():
 def service():
     if request.method == 'POST':
         print "get a post request", request
-        print request.args
-        print request.form
-        print request.values
-        print request.cookies
-        print request.get_data()
+        # print request.args
+        # print request.form
+        # print request.values
+        # print request.cookies
+        # print request.get_data()
         # print request.form['body']
         body_text_of_user_request = request.get_data()
         # print 'encrypt_type,', request.form['encrypt_type']
@@ -72,7 +94,7 @@ def service():
         try: 
             # tree = ET.parse(xmlfile)     #打开xml文档 
             tree = ET.fromstring(body_text_of_user_request) #从字符串传递xml 
-            content = tree.findtext('Content')         #获得root节点  
+                    #获得root节点  
         except Exception, e: 
             print "Error:cannot parse xml."
 
@@ -97,22 +119,68 @@ def service():
         message = wechat.get_message()
         # print "wechat.get_message()", message
         response = wechat.response_text(u'^_^')
+        userInput = u'你好'
+        openid = request.args.get('openid')
         if message.type == 'text':
             if message.content == 'wechat':
                 response = wechat.response_text(u'^_^')
             else:
-                response = wechat.response_text(u'云平台即将对您的输入进行响应。\n你输入的内容是：'+ content +'\n@' + time.ctime())
+                userInput = tree.findtext('Content') 
+                # 在此阶段，直接返回。测试用。
+                response = wechat.response_text(u'云平台将会对你智能回复，即将开放测试，敬请期待。\n你输入的内容是：'+ userInput +'\n@' + time.ctime())
         elif message.type == 'voice':
-            response = wechat.response_text(u'云平台即将对您的输入进行响应。\n你输入的语音是：'+ tree.findtext('Recognition') +'\n@' + time.ctime())
+            userInput = tree.findtext('Recognition')
+            response = wechat.response_text(u'云平台将会对你智能回复，即将开放测试，敬请期待。\n你输入的语音是：'+ userInput +'\n@' + time.ctime())
         else:
-            response = wechat.response_text(u'不好意思，你的输入我还处理不了。')
-
-        # 现在直接将 response 变量内容直接作为 HTTP Response 响应微信服务器即可，此处为了演示返回内容，直接将响应进行输出
-    # print response
-
+            response = wechat.response_text(u'不好意思，你的输入小i我不理解。')
+        
+        #robotSay 包含的内容会反馈给用户
+        robotAnswer = requestService(openid, userInput)
+        # robotAnswer = userInput
+        # 将robotsay的内容转换成语音，存入到素材库中。
+        # putVoiceToWechatRepo(openid, robotSay)
+        response = wechat.response_text(robotAnswer)
+        
     return response
 
-# just for text
+def putVoiceToWechatRepo(openid, robotSay):
+    
+    # 使用讯飞的语音输出 
+    fname = "/tmp/"+openid+".amr"
+    cmd = ['/home/xiaoi/Linux_voice_1.109/bin/tts_sample', fname, robotSay]
+    print fname
+    subprocess.call(cmd)
+    # 需要认证 OfficialAPIError: 48001: api unauthorized hint，个人账号无法认证。            
+    wechat.upload_media("voice", file(fname))
+    os.remove(fname)
+      
+    
+
+def requestService(openid, userInput):
+    """
+    调用小i云服务，得到robot回复的内容。两个参数分别是用户标识openid,和用户输入的文本。
+    """
+    answer = u"通过智能硬件终端设备可以自动读出来："
+    result = servicemanager.request(userInput,openid)
+    for item in result:
+        if item.has_key("value"):
+            print "**robot answer**   cmd:"+item["cmd"]+",value:"+item["value"].decode('utf-8').encode(sys.getfilesystemencoding())
+            if bool(re.search(u'错误的服务请求', item["value"].decode('utf-8'), re.IGNORECASE)) == True:       
+                url = 'http://localhost:9090/turing?userId='+openid+'&userSay='+urllib.quote(userInput.encode('utf-8'))
+                print "request to turing", url
+                answer += urllib.urlopen(url).read()
+                break
+                
+            if item["cmd"]=="say":
+                answer += item["value"].decode('utf-8').encode(sys.getfilesystemencoding()) + "\n"
+            if item["cmd"]=="play":
+                answer += "\n即将为你播放:" + item["value"].decode('utf-8').encode(sys.getfilesystemencoding())
+        else:
+            print "**robot answer**   cmd:"+item["cmd"]
+    logger.info("user|input|answr: [" + openid + "|" + userInput + "|" + answer + "]")        
+    return answer
+    
+# just for test
 @app.route('/xiaoi/user/<name>')
 def sayHello(name):
     return '<h1> Hello,%s </h1>' % name
