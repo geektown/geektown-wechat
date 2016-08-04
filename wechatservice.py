@@ -139,7 +139,7 @@ def service():
         # robotAnswer = userInput
         # 将robotsay的内容转换成语音，存入到素材库中。
         # putVoiceToWechatRepo(openid, robotSay)
-        response = wechat.response_text(robotAnswer)
+        response = wechat.response_text("You said " + userInput + "\n" + robotAnswer)
         
     return response
 
@@ -160,7 +160,7 @@ def requestService(openid, userInput):
     """
     调用小i云服务，得到robot回复的内容。两个参数分别是用户标识openid,和用户输入的文本。
     """
-    answer = u"通过智能硬件终端设备可以自动读出来："
+    answer = u"小i说："
     result = servicemanager.request(userInput,openid)
     for item in result:
         if item.has_key("value"):
@@ -168,7 +168,17 @@ def requestService(openid, userInput):
             if bool(re.search(u'错误的服务请求', item["value"].decode('utf-8'), re.IGNORECASE)) == True:       
                 url = 'http://localhost:9090/turing?userId='+openid+'&userSay='+urllib.quote(userInput.encode('utf-8'))
                 print "request to turing", url
-                answer += urllib.urlopen(url).read()
+                data = json.loads(urllib.urlopen(url).read())
+                if data["code"] == 100000:
+                    answer += data["text"]
+                elif data["code"] == 200000:
+                    answer += data["text"] + "点这个链接查看吧。\n\n" + data["url"]
+                elif data["code"] == 302000:
+                    answer += data["text"] + u"。来自" + data["list"][0]["source"] +":" + data["list"][0]["article"] + "\n\n详细信息请点击链接查看。" + data["list"][0]["detailurl"]
+                elif data["code"] == 308000:
+                    answer += data["text"] + u"\n菜名：" +  data["list"][0]["name"] + u"\n食材："  + data["list"][0]["info"] + "\n\n详细信息请点击链接查看。" + data["list"][0]["detailurl"]
+                    
+                #answer += urllib.urlopen(url).read()
                 break
                 
             if item["cmd"]=="say":
